@@ -7,7 +7,7 @@ String password = "1603058178";  // 기본 비밀번호를 설정합니다.
 String serverUrl = "http://192.168.35.207:8082"; // 기본 URL을 설정합니다.
 
 unsigned long previousMillis = 0;
-const long interval = 60000;  // 1분(60,000 밀리초)
+const long interval = 10000;  // 1분(60,000 밀리초)
 
 void setup() {
   // 시리얼 통신을 시작합니다.
