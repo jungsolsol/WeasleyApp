@@ -97,7 +97,9 @@ void loop() {
       char tempdata[input.substring(5).length()];
       input.substring(5).toCharArray(tempdata, input.substring(5).length());
       Serial.println("Read json string");
-      Serial.println("Read json string");
+      Serial.println(tempdata);
+      //TESTDATA -> JSON={\"sensor\":\"gps\",\"time\":1351824120,\"data\":[48.756080,2.302038]}
+      
       auto error = deserializeJson(doc, tempdata);
       if (error) {
           Serial.print(F("deserializeJson() failed with code "));
