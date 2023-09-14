@@ -1,0 +1,24 @@
+package sol.server.common.jwt.config;
+
+import lombok.RequiredArgsConstructor;
+import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Configuration;
+import org.springframework.web.method.support.HandlerMethodArgumentResolver;
+import org.springframework.web.servlet.config.annotation.InterceptorRegistry;
+import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
+import sol.server.common.jwt.resolver.AuthorizationHandlerMethodArgumentResolver;
+
+import java.util.List;
+
+@Configuration
+@RequiredArgsConstructor
+public class AuthConfig implements WebMvcConfigurer {
+
+    private final AuthorizationHandlerMethodArgumentResolver authorizationHandlerMethodArgumentResolver;
+
+
+    @Override
+    public void addArgumentResolvers(List<HandlerMethodArgumentResolver> argumentResolver) {
+        argumentResolver.add(authorizationHandlerMethodArgumentResolver);
+    }
+}
