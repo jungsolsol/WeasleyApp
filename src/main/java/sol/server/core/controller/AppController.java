@@ -6,6 +6,7 @@ import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.core.userdetails.User;
 import org.springframework.web.bind.annotation.*;
 import sol.server.common.api.Api;
+import sol.server.core.entity.dto.LocAutoRequestDto;
 import sol.server.core.entity.dto.LocRequestDto;
 import sol.server.core.service.UserLocationService;
 
@@ -51,8 +52,8 @@ public class AppController {
      */
     @CrossOrigin
     @PostMapping("/auto")
-    public Api<?> autoAddLoc(@RequestBody LocRequestDto dto) {
-
+    public Api<?> autoAddLoc(@RequestBody LocAutoRequestDto dto, @AuthenticationPrincipal User user) {
+        userLocationService.addAuto(dto,user);
         return Api.OK("good");
     }
 }

@@ -12,6 +12,6 @@ import sol.server.core.entity.dto.LocRequestDto;
 public interface ApiFeignClient {
 
     @PostMapping("/api/auto")
-    ResponseEntity<Api> autoLocation(@RequestBody LocRequestDto dto);
+    ResponseEntity<Api> autoLocation(String userName);
 
 }

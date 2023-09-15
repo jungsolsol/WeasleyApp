@@ -23,12 +23,12 @@ public class User {
     @ManyToOne
     @JoinColumn(name = "productId")
     private Product product;
-
-    @OneToMany(mappedBy = "user", fetch = FetchType.LAZY)
-    private List<UserLocation> mainLocations = new ArrayList<>(); // 주요 장소 목록, 최대 5개
-
-    @OneToMany(mappedBy = "user", fetch = FetchType.LAZY)
-    private List<UserLocation> subLocations = new ArrayList<>(); // 서브 장소 목록, 최대 5개
+//
+//    @OneToMany(mappedBy = "user", fetch = FetchType.LAZY)
+//    private List<UserLocation> mainLocations = new ArrayList<>(); // 주요 장소 목록, 최대 5개
+//
+//    @OneToMany(mappedBy = "user", fetch = FetchType.LAZY)
+//    private List<UserLocation> subLocations = new ArrayList<>(); // 서브 장소 목록, 최대 5개
 
 
 //    public void addMainLocation(UserLocation userLocation) {
