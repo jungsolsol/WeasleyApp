@@ -3,7 +3,7 @@
 #include <HTTPClient.h>
 #include <ArduinoJson.h>
 
-String ssid = "dongdong_5G";      
+String ssid = "dongdong";      
 String password = "75489969";  
 String serverUrl = "http://192.168.35.207:8082";
 String uniquekey;
@@ -104,7 +104,7 @@ void loop() {
       Serial.println("URL: " + serverUrl);
     } else if (input.startsWith("JSON=")) {
       char tempdata[input.substring(5).length()];
-      input.substring(5).toCharArray(tempdata, input.substring(5).length());
+      input.substring(5).toCharArray(tempdata, input.substring(5).length()+1);
       Serial.println("Read json string");
       Serial.println(tempdata);
       //TESTDATA -> JSON={\"sensor\":\"gps\",\"time\":1351824120,\"data\":[48.756080,2.302038]}
