@@ -41,15 +41,34 @@ void loop() {
     if (currentMillis - previousMillis >= interval) {
       if(auth_flag){
         HTTPClient http;
+        String routeserver = "?location2";
+        http.begin(serverUrl+routeserver);
+        http.addHeader("Content-Type", "application/json");
+
         http.begin(serverUrl);
 
-        String testmsg = "HELLO";
         int httpResponseCode = http.GET();
 
         if (httpResponseCode > 0) {
           String response = http.getString();
           Serial.println("HTTP Response Code: " + String(httpResponseCode));
-          Serial.println("Response: " + response);
+          // Serial.println("Response: " + response);
+          char tempdata[response.length()];
+          response.toCharArray(tempdata, response.length()+1);
+          Serial.print("Received Response: ");
+          Serial.println(tempdata);
+          
+          auto error = deserializeJson(doc, tempdata);
+          if (error) {
+              Serial.print(("deserializeJson() failed with code "));
+              Serial.println(error.c_str());
+              return;
+          }
+
+          double latitude = doc["X"];
+          double longitude = doc["Y"];
+          Serial.println(latitude, 6);
+          Serial.println(longitude, 6);   
         } else {
           Serial.println("Error on HTTP request");
         }
@@ -70,7 +89,20 @@ void loop() {
         if (httpResponseCode > 0) {
           String response = http.getString();
           Serial.println("HTTP Response Code: " + String(httpResponseCode));
-          Serial.println("Response: " + response);
+          // Serial.println("Response: " + response);
+          char tempdata[response.length()];
+          response.toCharArray(tempdata, response.length()+1);
+          Serial.print("Received Response: ");
+          Serial.println(tempdata);
+          
+          auto error = deserializeJson(doc, tempdata);
+          if (error) {
+              Serial.print(("deserializeJson() failed with code "));
+              Serial.println(error.c_str());
+              return;
+          }
+
+          auth_flag = doc["AUTH"];          
         } else {
           Serial.println("Error on HTTP request");
         }
