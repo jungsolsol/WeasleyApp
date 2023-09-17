@@ -26,7 +26,8 @@ void setup() {
     Serial.println("Failed Connect to WiFi");
   } else {
     Serial.println("Success Connect to WiFi");
-    Serial.println("Connect Try time: " + connect);
+    Serial.print("Connect Try time: ");
+    Serial.println(connect,DEC);
   }
   
   WiFi.macAddress(mac);
@@ -132,15 +133,18 @@ void loop() {
         Serial.println("Failed Connect to WiFi");
       } else {  
         Serial.println("Success Connect to WiFi");
-        Serial.println("Connect Try time: %d", connect);
+        Serial.print("Connect Try time: ");
+        Serial.println(connect,DEC);
       }
     } else if(input.startsWith("MAC?")){
       Serial.println("MAC Addr: " + WiFi.macAddress());
     } else if(input.startsWith("WIFIRETRY=")){
       wifiretrytimes = input.substring(10).toInt();
-      Serial.println("Wifi Retry Time Changed: %d", wifiretrytimes);
+      Serial.print("Wifi Retry Time Changed: ");
+      Serial.println(wifiretrytimes, DEC);
     } else if(input.startsWith("WIFIRETRY?")){
-      Serial.println("Wifi Retry Time: %d", wifiretrytimes);
+      Serial.print("Wifi Retry Time: ");
+      Serial.println(wifiretrytimes, DEC);
     }
   }
 }
