@@ -12,28 +12,26 @@
 #define EEPROM_URL_ADDRESS          132
 #define EEPROM_KEY_ADDRESS          388
 #define EEPROM_WIFIRETRY_ADDRESS    408
-#define EEPROM_FACTORYRST_ADDRESS   412
+#define EEPROM_FACTORYRST_ADDRESS   416
 #define EEPROM_END_ADDRESS          4095
 
 String ssid;
-String password ;
-String serverUrl = "http://192.168.35.207:8082";
+String password;
+String serverUrl;
 String uniquekey;
-uint8_t factory_reset=0;
+unsigned int factory_reset=0;
 unsigned long previousMillis = 0;
 const long interval = 10000;
 StaticJsonDocument<200> doc;
 
 int connect=0;
-uint8_t wifiretrytimes=10;
+unsigned int wifiretrytimes=10;
 byte mac[6];
 
 bool auth_flag = false;
 
 void setup() {
   mcuinit();
-
-  Serial.begin(115200);
   connect=connectToWiFi();
 
 #ifdef DEBUG
@@ -48,8 +46,6 @@ void setup() {
   // WiFi.macAddress(mac);
 
   // init data
-
-
   auth_flag = false;
 }
 
@@ -67,7 +63,12 @@ void loop() {
 
         http.begin(serverUrl);
 
-        int httpResponseCode = http.GET();
+        char temp[64]={0,};
+        sprintf(temp,"{\"ack\": true}");
+        
+        String msg = temp;
+
+        int httpResponseCode = http.POST(msg);
 
         if (httpResponseCode > 0) {
           String response = http.getString();
@@ -85,8 +86,8 @@ void loop() {
               return;
           }
 
-          double latitude = doc["X"];
-          double longitude = doc["Y"];
+          double latitude = doc["usernumber"];
+          double longitude = doc["point"];
           Serial.println(latitude, 6);
           Serial.println(longitude, 6);   
         } else {
@@ -101,12 +102,13 @@ void loop() {
         http.addHeader("Content-Type", "application/json");
 
         char temp[64]={0,};
-        sprintf(temp,"{\"uuid\":\"%02X%02X%02X%02X%02X%02X5348\"}", mac[0],mac[1],mac[2],mac[3],mac[4],mac[5]);
-        String testmsg = temp;
+        sprintf(temp,"{\"uuid\":\"%s\"}", uniquekey);
+        
+        String msg = temp;
 #ifdef DEBUG
-        Serial.println("key json:"+testmsg);
+        Serial.println("key json:"+msg);
 #endif
-        int httpResponseCode = http.POST(testmsg);
+        int httpResponseCode = http.POST(msg);
 
         if (httpResponseCode > 0) {
           String response = http.getString();
@@ -135,11 +137,75 @@ void loop() {
       previousMillis = currentMillis;
     }
   }
-
-  
 }
 
-int connectToWiFi() {
+void mcuinit(void){
+  String buff;
+  int temp;
+  
+  Serial.begin(115200);
+  if (!EEPROM.begin(1000)) {
+    Serial.println("ERROR: Failed to initialise EEPROM");
+    Serial.println("ERROR: Restarting...");
+    delay(1000);
+    ESP.restart();
+  }
+
+  ssid = EEPROM.readString(EEPROM_SSID_ADDRESS);
+#ifdef DEBUG
+  Serial.println("INFO: SSID is " + ssid);
+#endif
+  password = EEPROM.readString(EEPROM_PASSWORD_ADDRESS);
+#ifdef DEBUG
+  Serial.println("INFO: PASSWORD is " + password);
+#endif
+  serverUrl = EEPROM.readString(EEPROM_URL_ADDRESS);
+#ifdef DEBUG
+  Serial.println("INFO: URL is " + serverUrl);
+#endif
+  uniquekey = EEPROM.readString(EEPROM_KEY_ADDRESS);
+#ifdef DEBUG
+  Serial.println("INFO: KEY is " + uniquekey);
+#endif
+  wifiretrytimes = EEPROM.readUInt(EEPROM_WIFIRETRY_ADDRESS);
+#ifdef DEBUG
+  Serial.print("INFO: Wifi retry is ");
+  Serial.println(wifiretrytimes);
+#endif
+  factory_reset = EEPROM.readUInt(EEPROM_FACTORYRST_ADDRESS);
+#ifdef DEBUG
+  Serial.println("INFO: Factory reset is ");
+  Serial.println(factory_reset);
+#endif
+
+  if(factory_reset){
+    ssid = "dongdong";
+    EEPROM.writeString(EEPROM_SSID_ADDRESS, ssid);
+
+    password = "75489969";
+    EEPROM.writeString(EEPROM_PASSWORD_ADDRESS, password);
+
+    serverUrl = "http://192.168.0.6:8082";
+    EEPROM.writeString(EEPROM_URL_ADDRESS, serverUrl);
+
+    char tmp[32]={0,};
+    WiFi.macAddress(mac);
+    sprintf(tmp,"WSLY%02x%02x%02x%02x%02x%02x", mac[0],mac[1],mac[2],mac[3],mac[4],mac[5]);
+    uniquekey = tmp;
+    uniquekey.toUpperCase();
+    EEPROM.writeString(EEPROM_KEY_ADDRESS, uniquekey);
+
+    wifiretrytimes = 5;
+    EEPROM.writeUInt(EEPROM_WIFIRETRY_ADDRESS, wifiretrytimes);
+
+    factory_reset = 0;
+    EEPROM.writeUInt(EEPROM_FACTORYRST_ADDRESS, factory_reset);
+
+    EEPROM.commit();
+  }
+}
+
+int connectToWiFi(void) {
   int cnt=0;
   WiFi.begin(ssid.c_str(), password.c_str());
 
@@ -162,7 +228,7 @@ void Serialcommand(void){
     if (input.startsWith("SSID=")) {
       ssid = input.substring(5);
       EEPROM.writeString(EEPROM_SSID_ADDRESS, ssid);
-      delay(4);
+      EEPROM.commit();
       Serial.println("AT: SSID Changed: " + ssid);
       // connectToWiFi(); 
     } else if (input.startsWith("SSID?")) {
@@ -170,7 +236,7 @@ void Serialcommand(void){
     } else if (input.startsWith("PASSWORD=")) {
       password = input.substring(9);
       EEPROM.writeString(EEPROM_PASSWORD_ADDRESS, password);
-      delay(4);
+      EEPROM.commit();
       Serial.println("AT: Password Changed.");
       // connectToWiFi(); 
     } else if (input.startsWith("PASSWORD?")) {
@@ -178,7 +244,7 @@ void Serialcommand(void){
     } else if (input.startsWith("URL=")) {
       serverUrl = input.substring(4);
       EEPROM.writeString(EEPROM_URL_ADDRESS, serverUrl);
-      delay(4);
+      EEPROM.commit();
       Serial.println("AT: URL Changed: " + serverUrl);
     } else if (input.startsWith("URL?")) {
       Serial.println("AT: URL: " + serverUrl);
@@ -223,7 +289,7 @@ void Serialcommand(void){
     } else if(input.startsWith("WIFIRETRY=")){
       wifiretrytimes = input.substring(10).toInt();
       EEPROM.writeUInt(EEPROM_WIFIRETRY_ADDRESS, wifiretrytimes);
-      delay(4);
+      EEPROM.commit();
       Serial.print("AT: Wifi Retry Time Changed: ");
       Serial.println(wifiretrytimes, DEC);
     } else if(input.startsWith("WIFIRETRY?")){
@@ -231,64 +297,12 @@ void Serialcommand(void){
       Serial.println(wifiretrytimes, DEC);
     } else if(input.startsWith("FACTORYRESET!")){
       factory_reset=1;
+      EEPROM.writeUInt(EEPROM_WIFIRETRY_ADDRESS, factory_reset);
+      EEPROM.commit();
       ESP.restart();
     } else {
-      Serial.println("AT: Wrong Command.")
+      Serial.println("AT: Wrong Command.");
     }
-  }
-}
-
-void mcuinit(void){
-  String buff;
-  int temp;
-  
-  if (!EEPROM.begin(1000)) {
-    Serial.println("ERROR: Failed to initialise EEPROM");
-    Serial.println("ERROR: Restarting...");
-    delay(1000);
-    ESP.restart();
-  }
-
-  ssid = EEPROM.readString(EEPROM_SSID_ADDRESS);
-  delay(4);
-  password = EEPROM.readString(EEPROM_PASSWORD_ADDRESS);
-  delay(4);
-  serverUrl = EEPROM.readString(EEPROM_URL_ADDRESS);
-  delay(4);
-  uniquekey = EEPROM.readString(EEPROM_KEY_ADDRESS);
-  delay(4);
-  wifiretrytimes = EEPROM.readUInt(EEPROM_WIFIRETRY_ADDRESS);
-  delay(4);
-  factory_reset = EEPROM.readUInt(EEPROM_FACTORYRST_ADDRESS);
-  delay(4);
-
-  if(factory_reset){
-    ssid = "dongdong";
-    EEPROM.writeString(EEPROM_SSID_ADDRESS, ssid);
-    delay(4);
-
-    password = "75489969";
-    EEPROM.writeString(EEPROM_PASSWORD_ADDRESS, password);
-    delay(4);
-
-    serverUrl = "http://192.168.0.6:8082";
-    EEPROM.writeString(EEPROM_URL_ADDRESS, serverUrl);
-    delay(4);
-
-    char tmp[32]={0,};
-    WiFi.macAddress(mac);
-    sprintf(tmp,"WSLY%02x%02x%02x%02x%02x%02x", mac[0],mac[1],mac[2],mac[3],mac[4],mac[5]);
-    uniquekey = tmp;
-    EEPROM.writeString(EEPROM_SSID_ADDRESS, uniquekey);
-    delay(4);
-
-    wifiretrytimes = 5;
-    EEPROM.writeUInt(EEPROM_WIFIRETRY_ADDRESS, wifiretrytimes);
-    delay(4);
-
-    factory_reset = 0;
-    EEPROM.writeUInt(EEPROM_FACTORYRST_ADDRESS, factory_reset);
-    delay(4);
   }
 }
 
