@@ -3,26 +3,40 @@
 #include <HTTPClient.h>
 #include <ArduinoJson.h>
 #include <EEPROM.h>
+#include <
+#include <PubSubClient.h>
 
 #define DEBUG 1
 
-#define EEPROM_START_ADDRESS        0
-#define EEPROM_SSID_ADDRESS         4
-#define EEPROM_PASSWORD_ADDRESS     68
-#define EEPROM_URL_ADDRESS          132
-#define EEPROM_KEY_ADDRESS          388
-#define EEPROM_WIFIRETRY_ADDRESS    408
-#define EEPROM_FACTORYRST_ADDRESS   416
-#define EEPROM_END_ADDRESS          4095
+#define EEPROM_START_ADDRESS           0
+#define EEPROM_SSID_ADDRESS            4
+#define EEPROM_PASSWORD_ADDRESS        68
+#define EEPROM_URL_ADDRESS             132
+#define EEPROM_KEY_ADDRESS             388
+#define EEPROM_WIFIRETRY_ADDRESS       408
+#define EEPROM_FACTORYRST_ADDRESS      416
+#define EEPROM_BROKER_ADDRESS          424
+#define EEPROM_MQTTPORT_ADDRESS        680
+#define EEPROM_MQTTID_ADDRESS          688
+#define EEPROM_MQTTPASSWORD_ADDRESS    752
+#define EEPROM_END_ADDRESS             4095
 
 String ssid;
 String password;
 String serverUrl;
 String uniquekey;
+
 unsigned int factory_reset=0;
 unsigned long previousMillis = 0;
 const long interval = 10000;
+
 StaticJsonDocument<200> doc;
+
+String brokerUrl;
+unsigned int mqttport=1883;
+String mqttid;
+String mqttpw;
+PubSubClient client(espclient);
 
 int connect=0;
 unsigned int wifiretrytimes=10;
@@ -43,9 +57,8 @@ void setup() {
     Serial.println(connect,DEC);
   }
 #endif
-  // WiFi.macAddress(mac);
 
-  // init data
+  if(client)
   auth_flag = false;
 }
 
@@ -174,8 +187,25 @@ void mcuinit(void){
 #endif
   factory_reset = EEPROM.readUInt(EEPROM_FACTORYRST_ADDRESS);
 #ifdef DEBUG
-  Serial.println("INFO: Factory reset is ");
+  Serial.print("INFO: Factory reset is ");
   Serial.println(factory_reset);
+#endif
+  brokerUrl = EEPROM.readString(EEPROM_BROKER_ADDRESS);
+#ifdef DEBUG
+  Serial.println("INFO: Broker Server is " + brokerUrl);
+#endif
+  mqttport = EEPROM.readUInt(EEPROM_MQTTPORT_ADDRESS);
+#ifdef DEBUG
+  Serial.print("INFO: Broker Port is ");
+  Serial.println(mqttport);
+#endif
+  mqttid = EEPROM.readString(EEPROM_MQTTID_ADDRESS);
+#ifdef DEBUG
+  Serial.println("INFO: MQTT ID is " + mqttid);
+#endif
+  mqttpw = EEPROM.readString(EEPROM_MQTTPASSWORD_ADDRESS);
+#ifdef DEBUG
+  Serial.println("INFO: MQTT Password is " + mqttpw);
 #endif
 
   if(factory_reset){
@@ -200,6 +230,12 @@ void mcuinit(void){
 
     factory_reset = 0;
     EEPROM.writeUInt(EEPROM_FACTORYRST_ADDRESS, factory_reset);
+
+    brokerUrl = "mqtt://localhost";
+    EEPROM.writeString(EEPROM_BROKER_ADDRESS, brokerUrl);
+
+    mqttport = 1883;
+    EEPROM.writeUInt(EEPROM_MQTTPORT_ADDRESS, mqttport);
 
     EEPROM.commit();
   }
@@ -300,6 +336,38 @@ void Serialcommand(void){
       EEPROM.writeUInt(EEPROM_WIFIRETRY_ADDRESS, factory_reset);
       EEPROM.commit();
       ESP.restart();
+    } else if (input.startsWith("BROKER=")) {
+      brokerUrl = input.substring(7);
+      EEPROM.writeString(EEPROM_BROKER_ADDRESS, brokerUrl);
+      EEPROM.commit();
+      Serial.println("AT: Broker Changed: " + brokerUrl);
+    } else if (input.startsWith("BROKER?")) {
+      Serial.println("AT: Broker: " + brokerUrl);
+    } else if(input.startsWith("MQTTPORT=")){
+      mqttport = input.substring(9).toInt();
+      EEPROM.writeUInt(EEPROM_MQTTPORT_ADDRESS, mqttport);
+      EEPROM.commit();
+      Serial.print("AT: Broker port Changed: ");
+      Serial.println(mqttport, DEC);
+    } else if(input.startsWith("MQTTPORT?")){
+      Serial.print("AT: Broker port: ");
+      Serial.println(mqttport, DEC);
+    } else if (input.startsWith("MQTTID=")) {
+      mqttid = input.substring(7);
+      EEPROM.writeString(EEPROM_MQTTID_ADDRESS, mqttid);
+      EEPROM.commit();
+      Serial.println("AT: MQTT ID Changed: " + mqttid);
+      // connectToWiFi(); 
+    } else if (input.startsWith("MQTTID?")) {
+      Serial.println("AT: MQTT ID : " + mqttid);
+    } else if (input.startsWith("MQTTPW=")) {
+      mqttpw = input.substring(7);
+      EEPROM.writeString(EEPROM_MQTTPASSWORD_ADDRESS, mqttpw);
+      EEPROM.commit();
+      Serial.println("AT: MQTT Password Changed.");
+      // connectToWiFi(); 
+    } else if (input.startsWith("MQTTPW?")) {
+      Serial.println("AT: MQTT Password: " + mqttpw);
     } else {
       Serial.println("AT: Wrong Command.");
     }
