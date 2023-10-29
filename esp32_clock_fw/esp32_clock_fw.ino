@@ -1,9 +1,9 @@
 // client side code 
 #include <WiFi.h>
+// #include <WifiClient.h>
 #include <HTTPClient.h>
 #include <ArduinoJson.h>
 #include <EEPROM.h>
-#include <
 #include <PubSubClient.h>
 
 #define DEBUG 1
@@ -13,12 +13,12 @@
 #define EEPROM_PASSWORD_ADDRESS        68
 #define EEPROM_URL_ADDRESS             132
 #define EEPROM_KEY_ADDRESS             388
-#define EEPROM_WIFIRETRY_ADDRESS       408
-#define EEPROM_FACTORYRST_ADDRESS      416
-#define EEPROM_BROKER_ADDRESS          424
-#define EEPROM_MQTTPORT_ADDRESS        680
-#define EEPROM_MQTTID_ADDRESS          688
-#define EEPROM_MQTTPASSWORD_ADDRESS    752
+#define EEPROM_WIFIRETRY_ADDRESS       420
+#define EEPROM_FACTORYRST_ADDRESS      428
+#define EEPROM_BROKER_ADDRESS          436
+#define EEPROM_MQTTPORT_ADDRESS        692
+#define EEPROM_MQTTID_ADDRESS          700
+#define EEPROM_MQTTPASSWORD_ADDRESS    764
 #define EEPROM_END_ADDRESS             4095
 
 String ssid;
@@ -36,17 +36,24 @@ String brokerUrl;
 unsigned int mqttport=1883;
 String mqttid;
 String mqttpw;
-PubSubClient client(espclient);
 
 int connect=0;
-unsigned int wifiretrytimes=10;
+unsigned int wifiretrytimes;
 byte mac[6];
+
+IPAddress server;
+
+void mqtt_callback(char* topic, byte* payload, unsigned int length);
+
+WiFiClient wfclient;
+PubSubClient client(wfclient);
 
 bool auth_flag = false;
 
+
 void setup() {
   mcuinit();
-  connect=connectToWiFi();
+    connect=connectToWiFi();
 
 #ifdef DEBUG
   if(connect < 0){
@@ -57,99 +64,124 @@ void setup() {
     Serial.println(connect,DEC);
   }
 #endif
+  
+  client.setClient(wfclient);
+  client.setServer(server, mqttport);
+  client.setCallback(mqtt_callback);
+  // if (client.connect("amq/topic", "guest", "guest")) {
+  //   // client.publish("outTopic","hello world");
+  //   Serial.println("Session connect successfull.");
+  //   client.subscribe("test/testtest");
+  // } else {
+  //   Serial.println("Session Fail");
+  // }
 
-  if(client)
   auth_flag = false;
 }
 
 void loop() {
   unsigned long currentMillis = millis();
 
-  Serialcommand();
-  if(connect>0){
-    if (currentMillis - previousMillis >= interval) {
-      if(auth_flag){
-        HTTPClient http;
-        String routeserver = "?location2";
-        http.begin(serverUrl+routeserver);
-        http.addHeader("Content-Type", "application/json");
-
-        http.begin(serverUrl);
-
-        char temp[64]={0,};
-        sprintf(temp,"{\"ack\": true}");
-        
-        String msg = temp;
-
-        int httpResponseCode = http.POST(msg);
-
-        if (httpResponseCode > 0) {
-          String response = http.getString();
-          Serial.println("HTTP Response Code: " + String(httpResponseCode));
-          // Serial.println("Response: " + response);
-          char tempdata[response.length()];
-          response.toCharArray(tempdata, response.length()+1);
-          Serial.print("Received Response: ");
-          Serial.println(tempdata);
-          
-          auto error = deserializeJson(doc, tempdata);
-          if (error) {
-              Serial.print(("deserializeJson() failed with code "));
-              Serial.println(error.c_str());
-              return;
-          }
-
-          double latitude = doc["usernumber"];
-          double longitude = doc["point"];
-          Serial.println(latitude, 6);
-          Serial.println(longitude, 6);   
-        } else {
-          Serial.println("Error on HTTP request");
-        }
-
-        http.end();
-      } else {
-        HTTPClient http;
-        String routeserver = "/auth";
-        http.begin(serverUrl+routeserver);
-        http.addHeader("Content-Type", "application/json");
-
-        char temp[64]={0,};
-        sprintf(temp,"{\"uuid\":\"%s\"}", uniquekey);
-        
-        String msg = temp;
-#ifdef DEBUG
-        Serial.println("key json:"+msg);
-#endif
-        int httpResponseCode = http.POST(msg);
-
-        if (httpResponseCode > 0) {
-          String response = http.getString();
-          Serial.println("HTTP Response Code: " + String(httpResponseCode));
-          // Serial.println("Response: " + response);
-          char tempdata[response.length()];
-          response.toCharArray(tempdata, response.length()+1);
-          Serial.print("Received Response: ");
-          Serial.println(tempdata);
-          
-          auto error = deserializeJson(doc, tempdata);
-          if (error) {
-              Serial.print(("deserializeJson() failed with code "));
-              Serial.println(error.c_str());
-              return;
-          }
-
-          auth_flag = doc["AUTH"];          
-        } else {
-          Serial.println("Error on HTTP request");
-        }
-
-        http.end();
-      }
-    
-      previousMillis = currentMillis;
-    }
+  if (!client.connected()) {
+    reconnect();
   }
+  client.loop();
+  Serialcommand();
+//   if(connect>0){
+//     if (currentMillis - previousMillis >= interval) {
+//       if(auth_flag){
+//         #ifdef easteregg
+//         HTTPClient http;
+//         String routeserver = "?location2";
+//         http.begin(serverUrl+routeserver);
+//         http.addHeader("Content-Type", "application/json");
+
+//         http.begin(serverUrl);
+
+//         char temp[64]={0,};
+//         sprintf(temp,"{\"ack\": true}");
+        
+//         String msg = temp;
+
+//         int httpResponseCode = http.POST(msg);
+
+//         if (httpResponseCode > 0) {
+//           String response = http.getString();
+//           Serial.println("HTTP Response Code: " + String(httpResponseCode));
+//           // Serial.println("Response: " + response);
+//           char tempdata[response.length()];
+//           response.toCharArray(tempdata, response.length()+1);
+//           Serial.print("Received Response: ");
+//           Serial.println(tempdata);
+          
+//           auto error = deserializeJson(doc, tempdata);
+//           if (error) {
+//               Serial.print(("deserializeJson() failed with code "));
+//               Serial.println(error.c_str());
+//               return;
+//           }
+
+//           double latitude = doc["usernumber"];
+//           double longitude = doc["point"];
+//           Serial.println(latitude, 6);
+//           Serial.println(longitude, 6);   
+//         } else {
+//           Serial.println("Error on HTTP request");
+//         }
+
+//         http.end();
+//         #endif
+//         // TODO: mqtt connection and commuication
+
+//       } else {     // Auth REST API
+//         HTTPClient http;
+//         // String routeserver = "/auth-e";
+//         http.begin(serverUrl);
+//         http.addHeader("Content-Type", "application/json");
+
+//         char temp[128]={0,};
+//         char keytemp[64]={0,};
+//         uniquekey.toCharArray(keytemp,uniquekey.length());
+//         sprintf(temp,"{\"uuid\":\"%s\"}", keytemp);
+        
+//         String msg = temp;
+// #ifdef DEBUG
+//         Serial.println("key json:"+msg);
+// #endif
+//         int httpResponseCode = http.POST(msg);
+
+//         if(httpResponseCode >= 400) {
+//           Serial.println("Server Error");
+//           Serial.println("HTTP Response Code: " + String(httpResponseCode));
+//         } else if (httpResponseCode >= 200) {
+//           String response = http.getString();
+//           Serial.println("HTTP Response Code: " + String(httpResponseCode));
+//           // Serial.println("Response: " + response);
+//           char tempdata[response.length()];
+//           response.toCharArray(tempdata, response.length()+1);
+//           Serial.print("Received Response: ");
+//           Serial.println(tempdata);
+          
+//           // auto error = deserializeJson(doc, tempdata);
+//           // if (error) {
+//           //     Serial.print(("deserializeJson() failed with code "));
+//           //     Serial.println(error.c_str());
+//           //     return;
+//           // }
+
+//           // auth_flag = doc["AUTH"];
+//           auth_flag = true;
+//         } else {
+//           Serial.println("Error on HTTP request");
+//           Serial.println("HTTP Response Code: " + String(httpResponseCode));
+//         }
+
+//         http.end();
+//       }
+    
+//       previousMillis = currentMillis;
+//     }
+//   }
 }
 
 void mcuinit(void){
@@ -183,7 +215,7 @@ void mcuinit(void){
   wifiretrytimes = EEPROM.readUInt(EEPROM_WIFIRETRY_ADDRESS);
 #ifdef DEBUG
   Serial.print("INFO: Wifi retry is ");
-  Serial.println(wifiretrytimes);
+  Serial.println(wifiretrytimes, DEC);
 #endif
   factory_reset = EEPROM.readUInt(EEPROM_FACTORYRST_ADDRESS);
 #ifdef DEBUG
@@ -191,6 +223,11 @@ void mcuinit(void){
   Serial.println(factory_reset);
 #endif
   brokerUrl = EEPROM.readString(EEPROM_BROKER_ADDRESS);
+  if (server.fromString(brokerUrl)) { // try to parse into the IPAddress
+    // Serial.println(server); // print the parsed IPAddress 
+  } else {
+      Serial.println("ERROR: UnParsable IP");
+  }
 #ifdef DEBUG
   Serial.println("INFO: Broker Server is " + brokerUrl);
 #endif
@@ -209,13 +246,14 @@ void mcuinit(void){
 #endif
 
   if(factory_reset){
+    // TODO: EEPROM Fail handlings
     ssid = "dongdong";
     EEPROM.writeString(EEPROM_SSID_ADDRESS, ssid);
 
     password = "75489969";
     EEPROM.writeString(EEPROM_PASSWORD_ADDRESS, password);
 
-    serverUrl = "http://192.168.0.6:8082";
+    serverUrl = "http://192.168.0.35:8088/api/auth-e";
     EEPROM.writeString(EEPROM_URL_ADDRESS, serverUrl);
 
     char tmp[32]={0,};
@@ -225,17 +263,23 @@ void mcuinit(void){
     uniquekey.toUpperCase();
     EEPROM.writeString(EEPROM_KEY_ADDRESS, uniquekey);
 
-    wifiretrytimes = 5;
+    wifiretrytimes = 10;
     EEPROM.writeUInt(EEPROM_WIFIRETRY_ADDRESS, wifiretrytimes);
 
     factory_reset = 0;
     EEPROM.writeUInt(EEPROM_FACTORYRST_ADDRESS, factory_reset);
 
-    brokerUrl = "mqtt://localhost";
+    brokerUrl = "192.168.0.24";
     EEPROM.writeString(EEPROM_BROKER_ADDRESS, brokerUrl);
 
     mqttport = 1883;
     EEPROM.writeUInt(EEPROM_MQTTPORT_ADDRESS, mqttport);
+
+    mqttid = "guest";
+    EEPROM.writeString(EEPROM_MQTTID_ADDRESS, mqttid);
+
+    mqttpw = "guest";
+    EEPROM.writeString(EEPROM_MQTTPASSWORD_ADDRESS, mqttpw);
 
     EEPROM.commit();
   }
@@ -335,12 +379,17 @@ void Serialcommand(void){
       factory_reset=1;
       EEPROM.writeUInt(EEPROM_WIFIRETRY_ADDRESS, factory_reset);
       EEPROM.commit();
+      delay(1);
       ESP.restart();
     } else if (input.startsWith("BROKER=")) {
       brokerUrl = input.substring(7);
       EEPROM.writeString(EEPROM_BROKER_ADDRESS, brokerUrl);
       EEPROM.commit();
-      Serial.println("AT: Broker Changed: " + brokerUrl);
+      if (server.fromString(brokerUrl)) { // try to parse into the IPAddress
+          Serial.println("AT: Broker Changed: " + brokerUrl);
+      } else {
+          Serial.println("ERROR: UnParsable IP");
+      }
     } else if (input.startsWith("BROKER?")) {
       Serial.println("AT: Broker: " + brokerUrl);
     } else if(input.startsWith("MQTTPORT=")){
@@ -374,5 +423,43 @@ void Serialcommand(void){
   }
 }
 
+void mqtt_callback(char* topic, byte* payload, unsigned int length){
+  // Allocate the correct amount of memory for the payload copy
+  char* p = (char*)malloc(length);
+  // Copy the payload to the new buffer
+  memset(p,0,length);
+  memcpy(p,(char*)payload,length);
+  // client.publish("outTopic", p, length);
+
+  String buf = String(p);
+  Serial.print("mqtt receive msg: ");
+  Serial.println(buf);
+  Serial.print("mqtt receive length: ");
+  Serial.println(length, DEC);
+  // Free the memory
+  free(p);
+}
+
+void reconnect(String key) {
+  // Loop until we're reconnected
+  if (!client.connected()) {
+    Serial.print("Attempting MQTT connection...");
+    // Attempt to connect
+    // if (client.connect("amq/topic", "guest", "guest")) {
+    if (client.connect(key)) {
+      Serial.println("INFO: MQTT connected");
+      // Once connected, publish an announcement...
+      // client.publish("outTopic","hello world");
+      // ... and resubscribe
+      client.subscribe("test/test");
+    } else {
+      Serial.print("failed, rc=");
+      Serial.print(client.state());
+      Serial.println(" try again in 5 seconds");
+      // Wait 5 seconds before retrying
+      delay(5000);
+    }
+  }
+}
 
 
