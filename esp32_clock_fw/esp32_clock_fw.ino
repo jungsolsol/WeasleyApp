@@ -31,6 +31,7 @@ unsigned long previousMillis = 0;
 const long interval = 10000;
 
 StaticJsonDocument<200> doc;
+unsigned int clock_point[4]={0,};
 
 String brokerUrl;
 unsigned int mqttport=1883;
@@ -65,77 +66,73 @@ void setup() {
   }
 #endif
   
+  // set mqtt client configuration
   client.setClient(wfclient);
   client.setServer(server, mqttport);
   client.setCallback(mqtt_callback);
-  // if (client.connect("amq/topic", "guest", "guest")) {
-  //   // client.publish("outTopic","hello world");
-  //   Serial.println("Session connect successfull.");
-  //   client.subscribe("test/testtest");
-  // } else {
-  //   Serial.println("Session Fail");
-  // }
 
+#ifdef DEBUG
+  auth_flag = true;
+#elif
   auth_flag = false;
+#endif
 }
 
 void loop() {
   unsigned long currentMillis = millis();
 
-  if (!client.connected()) {
-    reconnect();
-  }
   client.loop();
   Serialcommand();
-//   if(connect>0){
-//     if (currentMillis - previousMillis >= interval) {
-//       if(auth_flag){
-//         #ifdef easteregg
-//         HTTPClient http;
-//         String routeserver = "?location2";
-//         http.begin(serverUrl+routeserver);
-//         http.addHeader("Content-Type", "application/json");
+  if(connect>0){
+    if (currentMillis - previousMillis >= interval) {
+      if(auth_flag){
+#ifdef easteregg
+        HTTPClient http;
+        String routeserver = "?location2";
+        http.begin(serverUrl+routeserver);
+        http.addHeader("Content-Type", "application/json");
 
-//         http.begin(serverUrl);
+        http.begin(serverUrl);
 
-//         char temp[64]={0,};
-//         sprintf(temp,"{\"ack\": true}");
+        char temp[64]={0,};
+        sprintf(temp,"{\"ack\": true}");
         
-//         String msg = temp;
+        String msg = temp;
 
-//         int httpResponseCode = http.POST(msg);
+        int httpResponseCode = http.POST(msg);
 
-//         if (httpResponseCode > 0) {
-//           String response = http.getString();
-//           Serial.println("HTTP Response Code: " + String(httpResponseCode));
-//           // Serial.println("Response: " + response);
-//           char tempdata[response.length()];
-//           response.toCharArray(tempdata, response.length()+1);
-//           Serial.print("Received Response: ");
-//           Serial.println(tempdata);
+        if (httpResponseCode > 0) {
+          String response = http.getString();
+          Serial.println("HTTP Response Code: " + String(httpResponseCode));
+          // Serial.println("Response: " + response);
+          char tempdata[response.length()];
+          response.toCharArray(tempdata, response.length()+1);
+          Serial.print("Received Response: ");
+          Serial.println(tempdata);
           
-//           auto error = deserializeJson(doc, tempdata);
-//           if (error) {
-//               Serial.print(("deserializeJson() failed with code "));
-//               Serial.println(error.c_str());
-//               return;
-//           }
+          auto error = deserializeJson(doc, tempdata);
+          if (error) {
+              Serial.print(("deserializeJson() failed with code "));
+              Serial.println(error.c_str());
+              return;
+          }
 
-//           double latitude = doc["usernumber"];
-//           double longitude = doc["point"];
-//           Serial.println(latitude, 6);
-//           Serial.println(longitude, 6);   
-//         } else {
-//           Serial.println("Error on HTTP request");
-//         }
+          double latitude = doc["usernumber"];
+          double longitude = doc["point"];
+          Serial.println(latitude, 6);
+          Serial.println(longitude, 6);   
+        } else {
+          Serial.println("Error on HTTP request");
+        }
 
-//         http.end();
-//         #endif
-//         // TODO: mqtt connection and commuication
+        http.end();
+#endif
+      if (!client.connected()) {
+        reconnect(uniquekey);
+      }
 
-//       } else {     // Auth REST API
+      } else {     // Auth REST API
 //         HTTPClient http;
-//         // String routeserver = "/auth-e";
 //         http.begin(serverUrl);
 //         http.addHeader("Content-Type", "application/json");
 
@@ -154,6 +151,7 @@ void loop() {
 //           Serial.println("Server Error");
 //           Serial.println("HTTP Response Code: " + String(httpResponseCode));
 //         } else if (httpResponseCode >= 200) {
+// #ifdef DEBUG
 //           String response = http.getString();
 //           Serial.println("HTTP Response Code: " + String(httpResponseCode));
 //           // Serial.println("Response: " + response);
@@ -161,15 +159,7 @@ void loop() {
 //           response.toCharArray(tempdata, response.length()+1);
 //           Serial.print("Received Response: ");
 //           Serial.println(tempdata);
-          
-//           // auto error = deserializeJson(doc, tempdata);
-//           // if (error) {
-//           //     Serial.print(("deserializeJson() failed with code "));
-//           //     Serial.println(error.c_str());
-//           //     return;
-//           // }
-
-//           // auth_flag = doc["AUTH"];
+// #endif
 //           auth_flag = true;
 //         } else {
 //           Serial.println("Error on HTTP request");
@@ -177,11 +167,11 @@ void loop() {
 //         }
 
 //         http.end();
-//       }
+      }
     
-//       previousMillis = currentMillis;
-//     }
-//   }
+      previousMillis = currentMillis;
+    }
+  }
 }
 
 void mcuinit(void){
@@ -425,9 +415,9 @@ void Serialcommand(void){
 
 void mqtt_callback(char* topic, byte* payload, unsigned int length){
   // Allocate the correct amount of memory for the payload copy
-  char* p = (char*)malloc(length);
+  char* p = (char*)malloc(length+1);
   // Copy the payload to the new buffer
-  memset(p,0,length);
+  memset(p,0,length+1);
   memcpy(p,(char*)payload,length);
   // client.publish("outTopic", p, length);
 
@@ -436,28 +426,48 @@ void mqtt_callback(char* topic, byte* payload, unsigned int length){
   Serial.println(buf);
   Serial.print("mqtt receive length: ");
   Serial.println(length, DEC);
+
+// TODO: add parser
+  auto error = deserializeJson(doc, p);
+  if (error) {
+      Serial.print(("deserializeJson() failed with code "));
+      Serial.println(error.c_str());
+      return;
+  }
+  // TODO: data error handlers
+  int usernumber = doc["usernumber"];
+  int point = doc["point"];
+  clock_point[usernumber] = point;
+  Serial.print("USER NUMBER : ");
+  Serial.println(usernumber, DEC);
+  Serial.print("Point : ");
+  Serial.println(point, DEC);
+
   // Free the memory
   free(p);
 }
 
 void reconnect(String key) {
+  char tmp[32] = {0,};
+  tmp[0] = '/';
+  key.toCharArray(&tmp[1], key.length());
   // Loop until we're reconnected
   if (!client.connected()) {
     Serial.print("Attempting MQTT connection...");
     // Attempt to connect
-    // if (client.connect("amq/topic", "guest", "guest")) {
-    if (client.connect(key)) {
+    // if (client.connect(tmp, "guest", "guest")) {
+    if (client.connect(tmp)) {
       Serial.println("INFO: MQTT connected");
       // Once connected, publish an announcement...
       // client.publish("outTopic","hello world");
       // ... and resubscribe
-      client.subscribe("test/test");
+      client.subscribe("test/test");  // TODO: changable
     } else {
       Serial.print("failed, rc=");
       Serial.print(client.state());
       Serial.println(" try again in 5 seconds");
       // Wait 5 seconds before retrying
-      delay(5000);
+      // delay(5000);
     }
   }
 }
